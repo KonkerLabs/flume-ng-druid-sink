@@ -55,7 +55,7 @@ Mandatory properties in <b>bold</b>
 | <b>dimensions</b> | - | String | Comma separated list with event headers you want to stored. Similar to columns in relational databases. 
 | firehosePattern | druid&#58;firehose&#58;%s | String |  Firehoses describe the data stream source. Make up a service pattern, include %s somewhere in it. This will be used for internal service-discovery purposes, to help druid sink find Druid indexing tasks.
 | dataSource | sampleSource | String | Source name where events will be stored. Very similar to a table in relational databases.
-| aggregators | count aggregator | String | Different specifications of processing over available metrics.
+| aggregators | - | String (json format) | Different specifications of processing over available metrics (COUNT, DOUBLESUM, LONGSUM, DOUBLEMAX, LONGMAX, DOUBLEMIN, LONGMIN and HYPERUNIQUES).
 | zookeeperLocation | 127.0.0.1&#58;2181 | String | Zookeeper location (hostname:port).
 | timestampField | timestamp | String | The field name where event timestamp info is extracted from.
 | segmentGranularity | HOUR | Granularity | Time granularity (minute, hour, day, week, month) for loading data at query time. Recommended, more than queryGranularity.
@@ -84,7 +84,7 @@ agent.sinks.druidSink.indexService = druid/overlord
 agent.sinks.druidSink.discoveryPath = /druid/discovery
 agent.sinks.druidSink.dimensions = 
 agent.sinks.druidSink.dataSource = testDS
-agent.sinks.druidSink.aggregators = count
+agent.sinks.druidSink.aggregators = {"DOUBLESUM":["field1","field2","field3"],"LONGSUM":["field4","field5","field6"],"DOUBLEMAX":["field7"],"COUNT":["field8","field9"]}
 agent.sinks.druidSink.timestampField = timestamp
 agent.sinks.druidSink.timestampFormat = YYYY-MM-dd HH:mm:ss.SSS
 agent.sinks.druidSink.segmentGranularity = HOUR

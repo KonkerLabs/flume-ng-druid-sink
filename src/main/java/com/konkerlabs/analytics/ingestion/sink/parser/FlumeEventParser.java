@@ -3,8 +3,6 @@ package com.konkerlabs.analytics.ingestion.sink.parser;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.flume.Event;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
 
 import java.util.ArrayList;
@@ -40,11 +38,11 @@ public class FlumeEventParser {
         if (MapUtils.isNotEmpty(headers)) {
             parsedEvent = new HashMap<String, Object>();
             for (String header : headers.keySet()) {
-                if (dimensions.contains(header)) {
+                if (dimensions.contains(header) || header.equals(timestampField)) {
                     if (timestampField.equalsIgnoreCase(header)) {
-//                    parsedEvent.put(timestampField, dateTimeFormatter.parseDateTime(headers.get(timestampField)));
-                        //TODO create timestamp field when timestampField is null.
-                        parsedEvent.put(timestampField, new DateTime(DateTimeZone.UTC).toString(dateTimeFormatter));
+                        parsedEvent.put(timestampField, headers.get(timestampField));
+                        //TODO create timestamp field when timestampField is null?
+//                    parsedEvent.put(timestampField, new DateTime(DateTimeZone.UTC).toString(dateTimeFormatter));
 //                    parsedEvent.put("timestamp", new DateTime(DateTimeZone.UTC).getMillis());
                     } else
                         parsedEvent.put(header, headers.get(header));
