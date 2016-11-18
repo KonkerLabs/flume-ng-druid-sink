@@ -82,7 +82,7 @@ agent.sinks.druidSink.type = com.konkerlabs.analytics.ingestion.sink.Tranquility
 
 agent.sinks.druidSink.indexService = druid/overlord
 agent.sinks.druidSink.discoveryPath = /druid/discovery
-agent.sinks.druidSink.dimensions = 
+agent.sinks.druidSink.dimensions = field0
 agent.sinks.druidSink.dataSource = testDS
 agent.sinks.druidSink.aggregators = {"DOUBLESUM":["field1","field2","field3"],"LONGSUM":["field4","field5","field6"],"DOUBLEMAX":["field7"],"COUNT":["field8","field9"]}
 agent.sinks.druidSink.timestampField = timestamp

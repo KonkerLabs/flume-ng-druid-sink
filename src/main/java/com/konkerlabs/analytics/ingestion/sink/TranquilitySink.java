@@ -125,9 +125,20 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         sinkCounter = new SinkCounter(this.getName());
         if (timestampFormat.equals("auto"))
             dateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+        else if (timestampFormat.equals("millis"))
+            dateTimeFormatter = null;
         else
             dateTimeFormatter = DateTimeFormat.forPattern(timestampFormat);
-        eventParser = new FlumeEventParser(timestampField, dateTimeFormatter, dimensions);
+
+        // Filter defined fields
+        Set<String> filter = new HashSet<String>();
+        filter.add(timestampField);
+        filter.addAll(dimensions);
+        for (AggregatorFactory aggregatorFactory : aggregators) {
+            filter.addAll(aggregatorFactory.requiredFields());
+        }
+
+        eventParser = new FlumeEventParser(timestampField, dateTimeFormatter, filter);
     }
 
     private Tranquilizer<Map<String, Object>> buildDruidService() {
@@ -270,7 +281,10 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         return new Timestamper<Map<String, Object>>() {
             @Override
             public DateTime timestamp(Map<String, Object> theMap) {
-                return dateTimeFormatter.parseDateTime((String) theMap.get(timestampField));
+                if (timestampFormat.equals("millis"))
+                    return new DateTime(Long.valueOf((String) theMap.get(timestampField)));
+                else
+                    return dateTimeFormatter.parseDateTime((String) theMap.get(timestampField));
             }
         };
     }

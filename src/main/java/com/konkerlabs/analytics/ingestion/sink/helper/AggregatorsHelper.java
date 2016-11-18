@@ -39,43 +39,43 @@ public class AggregatorsHelper {
 
             switch (AggregatorEnum.valueOf(entry.getKey())) {
                 case COUNT:
-                    for (JsonElement jsonArray : entry.getValue().getAsJsonArray()) {
-                        aggregators.add(new CountAggregatorFactory(jsonArray.getAsString()));
+                    for (JsonElement element : entry.getValue().getAsJsonArray()) {
+                        aggregators.add(new CountAggregatorFactory(element.getAsString()));
                     }
                     break;
                 case DOUBLESUM:
-                    for (JsonElement jsonArray : entry.getValue().getAsJsonArray()) {
-                        aggregators.add(new DoubleSumAggregatorFactory(jsonArray.getAsString() + "_sum", jsonArray.getAsString()));
+                    for (JsonElement element : entry.getValue().getAsJsonArray()) {
+                        aggregators.add(new DoubleSumAggregatorFactory(element.getAsString() + "_sum", element.getAsString()));
                     }
                     break;
                 case LONGSUM:
-                    for (JsonElement jsonArray : entry.getValue().getAsJsonArray()) {
-                        aggregators.add(new LongSumAggregatorFactory(jsonArray.getAsString() + "_sum", jsonArray.getAsString()));
+                    for (JsonElement element : entry.getValue().getAsJsonArray()) {
+                        aggregators.add(new LongSumAggregatorFactory(element.getAsString() + "_sum", element.getAsString()));
                     }
                     break;
                 case DOUBLEMIN:
-                    for (JsonElement jsonArray : entry.getValue().getAsJsonArray()) {
-                        aggregators.add(new DoubleMinAggregatorFactory(jsonArray.getAsString() + "_min", jsonArray.getAsString()));
+                    for (JsonElement element : entry.getValue().getAsJsonArray()) {
+                        aggregators.add(new DoubleMinAggregatorFactory(element.getAsString() + "_min", element.getAsString()));
                     }
                     break;
                 case LONGMIN:
-                    for (JsonElement jsonArray : entry.getValue().getAsJsonArray()) {
-                        aggregators.add(new LongMinAggregatorFactory(jsonArray.getAsString() + "_min", jsonArray.getAsString()));
+                    for (JsonElement element : entry.getValue().getAsJsonArray()) {
+                        aggregators.add(new LongMinAggregatorFactory(element.getAsString() + "_min", element.getAsString()));
                     }
                     break;
                 case DOUBLEMAX:
-                    for (JsonElement jsonArray : entry.getValue().getAsJsonArray()) {
-                        aggregators.add(new DoubleMaxAggregatorFactory(jsonArray.getAsString() + "_max", jsonArray.getAsString()));
+                    for (JsonElement element : entry.getValue().getAsJsonArray()) {
+                        aggregators.add(new DoubleMaxAggregatorFactory(element.getAsString() + "_max", element.getAsString()));
                     }
                     break;
                 case LONGMAX:
-                    for (JsonElement jsonArray : entry.getValue().getAsJsonArray()) {
-                        aggregators.add(new LongMaxAggregatorFactory(jsonArray.getAsString() + "_max", jsonArray.getAsString()));
+                    for (JsonElement element : entry.getValue().getAsJsonArray()) {
+                        aggregators.add(new LongMaxAggregatorFactory(element.getAsString() + "_max", element.getAsString()));
                     }
                     break;
                 case HYPERUNIQUES:
-                    for (JsonElement jsonArray : entry.getValue().getAsJsonArray()) {
-                        aggregators.add(new HyperUniquesAggregatorFactory(jsonArray.getAsString() + "_unique", jsonArray.getAsString()));
+                    for (JsonElement element : entry.getValue().getAsJsonArray()) {
+                        aggregators.add(new HyperUniquesAggregatorFactory(element.getAsString() + "_unique", element.getAsString()));
                     }
                     break;
             }

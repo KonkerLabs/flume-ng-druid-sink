@@ -5,21 +5,18 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.flume.Event;
 import org.joda.time.format.DateTimeFormatter;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class FlumeEventParser {
 
     private final String timestampField;
     private final DateTimeFormatter dateTimeFormatter;
-    private final List<String> dimensions;
+    private final Set<String> filter;
 
-    public FlumeEventParser(String timestampField, DateTimeFormatter dateTimeFormatter, List<String> dimensions) {
+    public FlumeEventParser(String timestampField, DateTimeFormatter dateTimeFormatter, Set<String> filter) {
         this.timestampField = timestampField;
         this.dateTimeFormatter = dateTimeFormatter;
-        this.dimensions = dimensions;
+        this.filter = filter;
     }
 
     public List<Map<String, Object>> parse(List<Event> events) {
@@ -38,8 +35,8 @@ public class FlumeEventParser {
         if (MapUtils.isNotEmpty(headers)) {
             parsedEvent = new HashMap<String, Object>();
             for (String header : headers.keySet()) {
-                if (dimensions.contains(header) || header.equals(timestampField)) {
-                    if (timestampField.equalsIgnoreCase(header)) {
+                if (filter.contains(header)) {
+                    if (timestampField.equals(header)) {
                         parsedEvent.put(timestampField, headers.get(timestampField));
                         //TODO create timestamp field when timestampField is null?
 //                    parsedEvent.put(timestampField, new DateTime(DateTimeZone.UTC).toString(dateTimeFormatter));
