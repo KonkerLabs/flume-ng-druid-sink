@@ -77,7 +77,6 @@ public class TranquilitySink extends AbstractSink implements Configurable {
     private static final Integer DEFAULT_BATCH_SIZE = 10000;
 
     private Tranquilizer<Map<String, Object>> druidService;
-    private CuratorFramework curatorFramework;
     private String discoveryPath;
     private String indexService;
     private String firehosePattern;
@@ -92,13 +91,15 @@ public class TranquilitySink extends AbstractSink implements Configurable {
     private int partitions;
     private int replicants;
     private String zookeeperLocation;
-    private int baseSleppTime;
+    private int baseSleepTime;
     private int maxRetries;
     private int maxSleep;
     private String timestampField;
     private String timestampFormat;
     private DateTimeFormatter dateTimeFormatter;
     private FlumeEventParser eventParser;
+    private List<Event> _events;
+    private Channel _channel;
 
     @Override
     public void configure(Context context) {
@@ -116,7 +117,7 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         timestampField = context.getString(TIMESTAMP_FIELD, DEFAULT_TIMESTAMP_FIELD);
         timestampFormat = context.getString(TIMESTAMP_FORMAT, null);
         zookeeperLocation = context.getString(ZOOKEEPER_LOCATION, DEFAULT_ZOOKEEPER_LOCATION);
-        baseSleppTime = context.getInteger(ZOOKEEPPER_BASE_SLEEP_TIME, DEFAULT_ZOOKEEPER_BASE_SLEEP);
+        baseSleepTime = context.getInteger(ZOOKEEPPER_BASE_SLEEP_TIME, DEFAULT_ZOOKEEPER_BASE_SLEEP);
         maxRetries = context.getInteger(ZOOKEEPER_MAX_RETRIES, DEFAULT_ZOOKEEPER_MAX_RETRIES);
         maxSleep = context.getInteger(ZOOKEEPER_MAX_SLEEP, DEFAULT_ZOOKEEPER_MAX_SLEEP);
         batchSize = context.getInteger(BATCH_SIZE, DEFAULT_BATCH_SIZE);
@@ -142,7 +143,7 @@ public class TranquilitySink extends AbstractSink implements Configurable {
     }
 
     private Tranquilizer<Map<String, Object>> buildDruidService() {
-        curatorFramework = buildCuratorFramework();
+        CuratorFramework curatorFramework = buildCuratorFramework();
         final TimestampSpec timestampSpec = new TimestampSpec(timestampField, timestampFormat, null);
         final Timestamper<Map<String, Object>> timestamper = getTimestamper();
         final DruidLocation druidLocation = DruidLocation.create(indexService, firehosePattern, dataSource);
@@ -162,10 +163,23 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         List<Event> events;
         List<Map<String, Object>> parsedEvents;
         Status status = Status.BACKOFF;
-        Transaction transaction = this.getChannel().getTransaction();
+
+        Channel channel = this.getChannel();
+        if (channel == null)
+        {
+            channel = _channel;
+        }
+
+        Transaction transaction = channel.getTransaction();
         try {
             transaction.begin();
-            events = takeEventsFromChannel(this.getChannel(), batchSize);
+            events = takeEventsFromChannel(channel, batchSize);
+
+            if (events.isEmpty())
+            {
+                events = _events;
+            }
+
             status = Status.READY;
             if (!events.isEmpty()) {
                 updateSinkCounters(events);
@@ -222,7 +236,10 @@ public class TranquilitySink extends AbstractSink implements Configurable {
                 sinkCounter.incrementEventDrainAttemptCount();
             }
         }
-        events.removeAll(Collections.singleton(null));
+        if (!events.isEmpty())
+        {
+            events.removeAll(Collections.singleton(null));
+        }
         return events;
     }
 
@@ -237,23 +254,30 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         return event;
     }
 
+    public boolean sendEvents()
+    {
+        return druidService.status().toString().equals("Open");
+    }
+
     private int sendEvents(List<Map<String, Object>> events) {
         int sentEvents = 0;
-
         LOG.debug("Sending events.");
         for (final Map<String, Object> item : events) {
             druidService.send(item).addEventListener(
                     new FutureEventListener<BoxedUnit>() {
                         @Override
                         public void onSuccess(BoxedUnit value) {
+                            System.out.println("Sent message: " + Arrays.toString(item.entrySet().toArray()));
                             LOG.debug("Sent message: " + Arrays.toString(item.entrySet().toArray()));
                         }
 
                         @Override
                         public void onFailure(Throwable e) {
                             if (e instanceof MessageDroppedException) {
+                                System.out.println("Dropped message: " + Arrays.toString(item.entrySet().toArray()));
                                 LOG.warn("Dropped message: " + Arrays.toString(item.entrySet().toArray()), e);
                             } else {
+                                System.out.println("Failed to send message: " + Arrays.toString(item.entrySet().toArray()));
                                 LOG.error("Failed to send message: " + Arrays.toString(item.entrySet().toArray()), e);
                             }
                         }
@@ -261,6 +285,7 @@ public class TranquilitySink extends AbstractSink implements Configurable {
             );
             sentEvents++;
         }
+
         LOG.info("Total sent messages: " + sentEvents);
 
         return sentEvents;
@@ -270,7 +295,7 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         final CuratorFramework curator = CuratorFrameworkFactory
                 .builder()
                 .connectString(zookeeperLocation)
-                .retryPolicy(new ExponentialBackoffRetry(baseSleppTime, maxRetries, maxSleep))
+                .retryPolicy(new ExponentialBackoffRetry(baseSleepTime, maxRetries, maxSleep))
                 .build();
         curator.start();
 
@@ -287,5 +312,15 @@ public class TranquilitySink extends AbstractSink implements Configurable {
                     return dateTimeFormatter.parseDateTime((String) theMap.get(timestampField));
             }
         };
+    }
+
+    public void setChannel(Channel channel)
+    {
+        _channel = channel;
+    }
+
+    public void setEvents(List<Event> events)
+    {
+        _events = events;
     }
 }
