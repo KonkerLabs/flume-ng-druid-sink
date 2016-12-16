@@ -267,18 +267,22 @@ public class TranquilitySink extends AbstractSink implements Configurable {
                     new FutureEventListener<BoxedUnit>() {
                         @Override
                         public void onSuccess(BoxedUnit value) {
-                            System.out.println("Sent message: " + Arrays.toString(item.entrySet().toArray()));
-                            LOG.debug("Sent message: " + Arrays.toString(item.entrySet().toArray()));
+                            if (item != null)
+                            {
+                                LOG.debug("Sent message: " + Arrays.toString(item.entrySet().toArray()));
+                            }
                         }
 
                         @Override
                         public void onFailure(Throwable e) {
-                            if (e instanceof MessageDroppedException) {
-                                System.out.println("Dropped message: " + Arrays.toString(item.entrySet().toArray()));
-                                LOG.warn("Dropped message: " + Arrays.toString(item.entrySet().toArray()), e);
-                            } else {
-                                System.out.println("Failed to send message: " + Arrays.toString(item.entrySet().toArray()));
-                                LOG.error("Failed to send message: " + Arrays.toString(item.entrySet().toArray()), e);
+                            LOG.error(e.getMessage(), e);
+                            if (item != null)
+                            {
+                                if (e instanceof MessageDroppedException) {
+                                    LOG.warn("Dropped message: " + Arrays.toString(item.entrySet().toArray()), e);
+                                } else {
+                                    LOG.error("Failed to send message: " + Arrays.toString(item.entrySet().toArray()), e);
+                                }
                             }
                         }
                     }
