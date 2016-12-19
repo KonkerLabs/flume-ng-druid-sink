@@ -263,33 +263,35 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         int sentEvents = 0;
         LOG.debug("Sending events.");
         for (final Map<String, Object> item : events) {
-            druidService.send(item).addEventListener(
-                    new FutureEventListener<BoxedUnit>() {
-                        @Override
-                        public void onSuccess(BoxedUnit value) {
-                            if (item != null)
-                            {
-                                LOG.debug("Sent message: " + Arrays.toString(item.entrySet().toArray()));
+            if (item != null)
+            {
+                druidService.send(item).addEventListener(
+                        new FutureEventListener<BoxedUnit>() {
+                            @Override
+                            public void onSuccess(BoxedUnit value) {
+                                if (item != null)
+                                {
+                                    LOG.debug("Sent message: " + Arrays.toString(item.entrySet().toArray()));
+                                }
                             }
-                        }
 
-                        @Override
-                        public void onFailure(Throwable e) {
-                            LOG.error(e.getMessage(), e);
-                            if (item != null)
-                            {
-                                if (e instanceof MessageDroppedException) {
-                                    LOG.warn("Dropped message: " + Arrays.toString(item.entrySet().toArray()), e);
-                                } else {
-                                    LOG.error("Failed to send message: " + Arrays.toString(item.entrySet().toArray()), e);
+                            @Override
+                            public void onFailure(Throwable e) {
+                                LOG.error(e.getMessage(), e);
+                                if (item != null)
+                                {
+                                    if (e instanceof MessageDroppedException) {
+                                        LOG.warn("Dropped message: " + Arrays.toString(item.entrySet().toArray()), e);
+                                    } else {
+                                        LOG.error("Failed to send message: " + Arrays.toString(item.entrySet().toArray()), e);
+                                    }
                                 }
                             }
                         }
-                    }
-            );
-            sentEvents++;
+                );
+                sentEvents++;
+            }
         }
-
         LOG.info("Total sent messages: " + sentEvents);
 
         return sentEvents;
@@ -318,7 +320,7 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         };
     }
 
-    public void setChannel(Channel channel)
+    public void setMockChannel(Channel channel)
     {
         _channel = channel;
     }

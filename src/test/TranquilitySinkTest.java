@@ -46,7 +46,7 @@ public class TranquilitySinkTest
                 result = Configurables.configure(_memoryChannel, context);
                 if (result)
                 {
-                    _tranquilitySink.setChannel(_memoryChannel);
+                    _tranquilitySink.setMockChannel(_memoryChannel);
                     _memoryChannel.start();
                     _tranquilitySink.start();
                 }

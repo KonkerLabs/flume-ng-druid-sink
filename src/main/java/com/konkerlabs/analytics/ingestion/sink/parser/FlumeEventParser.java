@@ -4,6 +4,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.flume.Event;
 import org.joda.time.format.DateTimeFormatter;
+import org.mortbay.log.Log;
 
 import java.util.*;
 
@@ -37,14 +38,20 @@ public class FlumeEventParser {
             for (String header : headers.keySet()) {
                 if (filter.contains(header)) {
                     if (timestampField.equals(header)) {
-                        parsedEvent.put(timestampField, headers.get(timestampField));
-                        //TODO create timestamp field when timestampField is null?
-//                    parsedEvent.put(timestampField, new DateTime(DateTimeZone.UTC).toString(dateTimeFormatter));
-//                    parsedEvent.put("timestamp", new DateTime(DateTimeZone.UTC).getMillis());
-                    } else
+                        if (headers.containsValue(timestampField)) {
+                            parsedEvent.put(timestampField, headers.get(timestampField));
+                            //TODO create timestamp field when timestampField is null?
+                            //parsedEvent.put(timestampField, new DateTime(DateTimeZone.UTC).toString(dateTimeFormatter));
+                            //parsedEvent.put("timestamp", new DateTime(DateTimeZone.UTC).getMillis());
+                        }
+                    } else if (headers.containsValue(header)) {
                         parsedEvent.put(header, headers.get(header));
+                    }
                 }
             }
+        }
+        else {
+            Log.warn("Headers are empty: " + event.getHeaders() +". Event will not be processed");
         }
         return parsedEvent;
     }
