@@ -12,6 +12,20 @@
     <name>Konker Analytics Druid Sink</name>
 
     <dependencies>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-all</artifactId>
+            <version>1.10.19</version>
+        </dependency>
+
         <dependency>
             <groupId>io.druid</groupId>
             <artifactId>tranquility-core_2.11</artifactId>

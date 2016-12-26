@@ -99,6 +99,21 @@ public class TranquilitySink extends AbstractSink implements Configurable {
     private String timestampFormat;
     private DateTimeFormatter dateTimeFormatter;
     private FlumeEventParser eventParser;
+    private SinkStrategy sinkStrategy = new DefaultSinkStrategy();
+
+    protected interface SinkStrategy {
+        Tranquilizer getDruidService();
+    }
+
+    private class DefaultSinkStrategy implements SinkStrategy {
+        public Tranquilizer getDruidService() {
+            return TranquilitySink.this.buildDruidService();
+        }
+    }
+
+    protected void setSinkStrategy(SinkStrategy sinkStrategy) {
+        this.sinkStrategy = sinkStrategy;
+    }
 
     @Override
     public void configure(Context context) {
@@ -121,40 +136,48 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         maxSleep = context.getInteger(ZOOKEEPER_MAX_SLEEP, DEFAULT_ZOOKEEPER_MAX_SLEEP);
         batchSize = context.getInteger(BATCH_SIZE, DEFAULT_BATCH_SIZE);
 
-        druidService = buildDruidService();
-        sinkCounter = new SinkCounter(this.getName());
-        if (timestampFormat.equals("auto"))
-            dateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
-        else if (timestampFormat.equals("millis"))
-            dateTimeFormatter = null;
-        else
-            dateTimeFormatter = DateTimeFormat.forPattern(timestampFormat);
+        druidService = sinkStrategy.getDruidService();
+        if (druidService != null) {
+            sinkCounter = new SinkCounter(this.getName());
+            if (timestampFormat.equals("auto"))
+                dateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+            else if (timestampFormat.equals("millis"))
+                dateTimeFormatter = null;
+            else
+                dateTimeFormatter = DateTimeFormat.forPattern(timestampFormat);
 
-        // Filter defined fields
-        Set<String> filter = new HashSet<String>();
-        filter.add(timestampField);
-        filter.addAll(dimensions);
-        for (AggregatorFactory aggregatorFactory : aggregators) {
-            filter.addAll(aggregatorFactory.requiredFields());
+            // Filter defined fields
+            Set<String> filter = new HashSet<String>();
+            filter.add(timestampField);
+            filter.addAll(dimensions);
+            for (AggregatorFactory aggregatorFactory : aggregators) {
+                filter.addAll(aggregatorFactory.requiredFields());
+            }
+
+            eventParser = new FlumeEventParser(timestampField, dateTimeFormatter, filter);
         }
-
-        eventParser = new FlumeEventParser(timestampField, dateTimeFormatter, filter);
     }
 
     private Tranquilizer<Map<String, Object>> buildDruidService() {
         curatorFramework = buildCuratorFramework();
         final TimestampSpec timestampSpec = new TimestampSpec(timestampField, timestampFormat, null);
         final Timestamper<Map<String, Object>> timestamper = getTimestamper();
-        final DruidLocation druidLocation = DruidLocation.create(indexService, firehosePattern, dataSource);
-        final DruidRollup druidRollup = DruidRollup
-                .create(DruidDimensions.specific(dimensions), aggregators, queryGranularity);
-        final ClusteredBeamTuning clusteredBeamTuning = ClusteredBeamTuning.builder()
-                .segmentGranularity(segmentGranularity)
-                .windowPeriod(new Period(windowPeriod)).partitions(partitions).replicants(replicants).build();
+        if (timestamper != null) {
+            final DruidLocation druidLocation = DruidLocation.create(indexService, firehosePattern, dataSource);
+            final DruidRollup druidRollup = DruidRollup
+                    .create(DruidDimensions.specific(dimensions), aggregators, queryGranularity);
+            final ClusteredBeamTuning clusteredBeamTuning = ClusteredBeamTuning.builder()
+                    .segmentGranularity(segmentGranularity)
+                    .windowPeriod(new Period(windowPeriod)).partitions(partitions).replicants(replicants).build();
 
-        return DruidBeams.builder(timestamper).curator(curatorFramework).discoveryPath(discoveryPath).location(
-                druidLocation).timestampSpec(timestampSpec).rollup(druidRollup).tuning(clusteredBeamTuning)
-                .buildTranquilizer();
+            return DruidBeams.builder(timestamper).curator(curatorFramework).discoveryPath(discoveryPath).location(
+                    druidLocation).timestampSpec(timestampSpec).rollup(druidRollup).tuning(clusteredBeamTuning)
+                    .buildTranquilizer();
+        } else {
+            LOG.error("Building druid service error.");
+            return null;
+        }
+
     }
 
     @Override
@@ -178,16 +201,16 @@ public class TranquilitySink extends AbstractSink implements Configurable {
             transaction.commit();
             status = Status.READY;
         } catch (ChannelException e) {
-            e.printStackTrace();
+            LOG.error(e.getMessage(), e);
             transaction.rollback();
             status = Status.BACKOFF;
             this.sinkCounter.incrementConnectionFailedCount();
         } catch (Throwable t) {
-            t.printStackTrace();
+            LOG.error(t.getMessage(), t);
             transaction.rollback();
             status = Status.BACKOFF;
             if (t instanceof Error) {
-                LOG.error(t.getMessage());
+                LOG.error(t.getMessage(), t);
                 throw new EventDeliveryException("An error occurred sending events to druid", t);
             }
         } finally {
@@ -200,7 +223,6 @@ public class TranquilitySink extends AbstractSink implements Configurable {
     public synchronized void start() {
         this.sinkCounter.start();
         this.druidService.start();
-
         super.start();
     }
 
@@ -212,21 +234,19 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         }
     }
 
-    private List<Event> takeEventsFromChannel(Channel channel, long eventsToTake) throws ChannelException {
+    protected List<Event> takeEventsFromChannel(Channel channel, long eventsToTake) throws ChannelException {
         List<Event> events = new ArrayList<Event>();
-        Event event;
         for (int i = 0; i < eventsToTake; i++) {
-            event = buildEvent(channel);
-            events.add(event);
+            Event event = buildEvent(channel);
             if (event != null) {
+                events.add(event);
                 sinkCounter.incrementEventDrainAttemptCount();
             }
         }
-        events.removeAll(Collections.singleton(null));
         return events;
     }
 
-    private Event buildEvent(Channel channel) {
+    protected Event buildEvent(Channel channel) {
         final Event takenEvent = channel.take();
         final ObjectNode objectNode = new ObjectNode(JsonNodeFactory.instance);
         Event event = null;
@@ -237,36 +257,36 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         return event;
     }
 
-    private int sendEvents(List<Map<String, Object>> events) {
+    public int sendEvents(List<Map<String, Object>> events) {
+        LOG.trace("Sending events: {}", events);
         int sentEvents = 0;
-
-        LOG.debug("Sending events.");
         for (final Map<String, Object> item : events) {
             druidService.send(item).addEventListener(
                     new FutureEventListener<BoxedUnit>() {
                         @Override
                         public void onSuccess(BoxedUnit value) {
-                            LOG.debug("Sent message: " + Arrays.toString(item.entrySet().toArray()));
+                            LOG.trace("Sent message: {}", item.entrySet());
                         }
 
                         @Override
                         public void onFailure(Throwable e) {
+                            LOG.error(e.getMessage(), e);
                             if (e instanceof MessageDroppedException) {
-                                LOG.warn("Dropped message: " + Arrays.toString(item.entrySet().toArray()), e);
+                                LOG.warn("Dropped message: {} ", item.entrySet(), e);
                             } else {
-                                LOG.error("Failed to send message: " + Arrays.toString(item.entrySet().toArray()), e);
+                                LOG.error("Failed to send message: {}", item.entrySet(), e);
                             }
                         }
                     }
             );
             sentEvents++;
         }
-        LOG.info("Total sent messages: " + sentEvents);
+        LOG.info("Total sent messages: {} ", sentEvents);
 
         return sentEvents;
     }
 
-    private CuratorFramework buildCuratorFramework() {
+    protected CuratorFramework buildCuratorFramework() {
         final CuratorFramework curator = CuratorFrameworkFactory
                 .builder()
                 .connectString(zookeeperLocation)
@@ -277,15 +297,26 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         return curator;
     }
 
-    private Timestamper<Map<String, Object>> getTimestamper() {
+    protected Timestamper<Map<String, Object>> getTimestamper() {
         return new Timestamper<Map<String, Object>>() {
             @Override
             public DateTime timestamp(Map<String, Object> theMap) {
-                if (timestampFormat.equals("millis"))
-                    return new DateTime(Long.valueOf((String) theMap.get(timestampField)));
-                else
-                    return dateTimeFormatter.parseDateTime((String) theMap.get(timestampField));
+                try {
+                    if (timestampFormat.equals("millis")) {
+                        return new DateTime(Long.valueOf((String) theMap.get(timestampField)));
+                    } else {
+                        return dateTimeFormatter.parseDateTime((String) theMap.get(timestampField));
+                    }
+                } catch (Exception e) {
+                    LOG.error("Timestamp processing error.", e);
+                    // TODO: To verify behavior when datetime is null.
+                    return null;
+                }
             }
         };
+    }
+
+    public String toString() {
+        return this.getClass().getName();
     }
 }
