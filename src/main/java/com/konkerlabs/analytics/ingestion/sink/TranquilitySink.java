@@ -92,7 +92,7 @@ public class TranquilitySink extends AbstractSink implements Configurable {
     private int partitions;
     private int replicants;
     private String zookeeperLocation;
-    private int baseSleppTime;
+    private int baseSleepTime;
     private int maxRetries;
     private int maxSleep;
     private String timestampField;
@@ -131,7 +131,7 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         timestampField = context.getString(TIMESTAMP_FIELD, DEFAULT_TIMESTAMP_FIELD);
         timestampFormat = context.getString(TIMESTAMP_FORMAT, null);
         zookeeperLocation = context.getString(ZOOKEEPER_LOCATION, DEFAULT_ZOOKEEPER_LOCATION);
-        baseSleppTime = context.getInteger(ZOOKEEPPER_BASE_SLEEP_TIME, DEFAULT_ZOOKEEPER_BASE_SLEEP);
+        baseSleepTime = context.getInteger(ZOOKEEPPER_BASE_SLEEP_TIME, DEFAULT_ZOOKEEPER_BASE_SLEEP);
         maxRetries = context.getInteger(ZOOKEEPER_MAX_RETRIES, DEFAULT_ZOOKEEPER_MAX_RETRIES);
         maxSleep = context.getInteger(ZOOKEEPER_MAX_SLEEP, DEFAULT_ZOOKEEPER_MAX_SLEEP);
         batchSize = context.getInteger(BATCH_SIZE, DEFAULT_BATCH_SIZE);
@@ -281,7 +281,7 @@ public class TranquilitySink extends AbstractSink implements Configurable {
             );
             sentEvents++;
         }
-        LOG.info("Total sent messages: {} ", sentEvents);
+        LOG.info("Total sent messages to be processed: {} ", sentEvents);
 
         return sentEvents;
     }
@@ -290,7 +290,7 @@ public class TranquilitySink extends AbstractSink implements Configurable {
         final CuratorFramework curator = CuratorFrameworkFactory
                 .builder()
                 .connectString(zookeeperLocation)
-                .retryPolicy(new ExponentialBackoffRetry(baseSleppTime, maxRetries, maxSleep))
+                .retryPolicy(new ExponentialBackoffRetry(baseSleepTime, maxRetries, maxSleep))
                 .build();
         curator.start();
 
