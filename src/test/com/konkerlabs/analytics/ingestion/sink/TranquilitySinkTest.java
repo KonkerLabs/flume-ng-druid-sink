@@ -15,8 +15,6 @@ import org.apache.flume.*;
 import org.apache.flume.channel.AbstractChannel;
 import org.apache.flume.conf.Configurables;
 import org.joda.time.DateTime;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
